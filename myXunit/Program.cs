@@ -13,6 +13,10 @@ namespace myXunit
             suite.Add(new TestCaseTest("TestResult"));
             suite.Add(new TestCaseTest("TestFailedResult"));
             suite.Add(new TestCaseTest("TestFailedResultFormatting"));
+            suite.Add(new TestCaseTest("TestFailedSetUp"));
+            suite.Add(new TestCaseTest("TestIsNotRanTestMethodWhenSetUpIsFailed"));
+            suite.Add(new TestCaseTest("TestTearDownWhenSetUpFailed"));
+            suite.Add(new TestCaseTest("TestTearDownWhenTestFailed"));
             suite.Add(new TestCaseTest("TestSuite"));
             var result = new TestResult();
             suite.Run(result);
@@ -65,6 +69,20 @@ namespace myXunit
             test = new BrokenSetUp("");
             test.Run(result);
             if (result.Summary().StartsWith("SetUp is Failed:")) { return; }
+            throw new AssertException();
+        }
+        public void TestIsNotRanTestMethodWhenSetUpIsFailed()
+        {
+            test = new BrokenSetUp("TestMethod");
+            test.Run(result);
+            if (!test.Log.Contains("TestMethod")) { return; }
+            throw new AssertException();
+        }
+        public void TestTearDownWhenSetUpFailed()
+        {
+            test = new BrokenSetUp("TestMethod");
+            test.Run(result);
+            if (test.Log.Contains("TearDown")) { return; }
             throw new AssertException();
         }
         public void TestTearDownWhenTestFailed()
@@ -150,7 +168,7 @@ namespace myXunit
         {
             Log = "SetUp ";
         }
-        public void TestMethod()
+        public override void TestMethod()
         {
             Log += "TestMethod ";
         }
@@ -170,6 +188,7 @@ namespace myXunit
         public TestCase(string methodName) { Name = methodName; }
 
         public virtual void SetUp() { }
+        public virtual void TestMethod() { }
         public virtual void TearDown() { }
         public void Run(TestResult result)
         {
@@ -181,7 +200,10 @@ namespace myXunit
             catch (Exception ex)
             {
                 result.SetUpFailed(ex);
+                TearDown();
+                return;
             }
+            
             try
             {
                 Type.GetType(GetType().FullName).GetMethod(Name).Invoke(this, new object[] { });
